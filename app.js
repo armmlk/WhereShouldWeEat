@@ -23,6 +23,9 @@ const dialogValue = document.getElementById("dialogValue");
 const dialogSubtitle = document.getElementById("dialogSubtitle");
 const btnSpinAgain = document.getElementById("btnSpinAgain");
 
+const confettiCanvas = document.getElementById("confetti");
+const confettiCtx = confettiCanvas?.getContext?.("2d") ?? null;
+
 const TWO_PI = Math.PI * 2;
 const BASE_START = -Math.PI / 2; // top
 
@@ -59,6 +62,124 @@ let restaurants = loadRestaurants();
 let rotation = 0; // radians, increasing spins clockwise in canvas coordinates
 let spinning = false;
 let lastWinnerId = null;
+
+let confettiRaf = 0;
+let confettiStopAt = 0;
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined"
+    && typeof window.matchMedia === "function"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function resizeConfettiCanvas() {
+  if (!confettiCanvas || !confettiCtx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(1, Math.floor(window.innerWidth));
+  const h = Math.max(1, Math.floor(window.innerHeight));
+  const nextW = Math.floor(w * dpr);
+  const nextH = Math.floor(h * dpr);
+
+  if (confettiCanvas.width !== nextW || confettiCanvas.height !== nextH) {
+    confettiCanvas.width = nextW;
+    confettiCanvas.height = nextH;
+  }
+  confettiCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function stopConfetti() {
+  if (!confettiCanvas || !confettiCtx) return;
+  if (confettiRaf) cancelAnimationFrame(confettiRaf);
+  confettiRaf = 0;
+  confettiStopAt = 0;
+  confettiCtx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+  confettiCanvas.style.display = "none";
+}
+
+function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
+  if (!confettiCanvas || !confettiCtx) return;
+  if (prefersReducedMotion()) return;
+
+  stopConfetti();
+  resizeConfettiCanvas();
+  confettiCanvas.style.display = "block";
+
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+
+  const colors = [
+    "#8b5cf6",
+    "#22c55e",
+    "#06b6d4",
+    "#f59e0b",
+    "#ef4444",
+    "#3b82f6",
+    "#ec4899",
+    "#14b8a6",
+    "#a3e635",
+    "#f97316",
+  ];
+
+  const particles = Array.from({ length: particleCount }, () => {
+    const fromLeft = Math.random() < 0.5;
+    const startX = fromLeft ? w * 0.25 : w * 0.75;
+    const spreadX = w * 0.28;
+
+    return {
+      x: startX + (Math.random() - 0.5) * spreadX,
+      y: -20 - Math.random() * 120,
+      vx: (fromLeft ? 1 : -1) * (140 + Math.random() * 260) + (Math.random() - 0.5) * 120,
+      vy: 140 + Math.random() * 260,
+      g: 680 + Math.random() * 520,
+      size: 5 + Math.random() * 6,
+      rot: Math.random() * Math.PI,
+      vr: (Math.random() - 0.5) * 10,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      alpha: 0.95,
+    };
+  });
+
+  const t0 = performance.now();
+  confettiStopAt = t0 + durationMs;
+
+  let last = t0;
+  function frame(now) {
+    const dt = clamp((now - last) / 1000, 0, 0.05);
+    last = now;
+
+    if (!confettiCanvas || !confettiCtx) return;
+    if (now >= confettiStopAt) {
+      stopConfetti();
+      return;
+    }
+
+    resizeConfettiCanvas();
+    confettiCtx.clearRect(0, 0, w, h);
+
+    for (const p of particles) {
+      p.vy += p.g * dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.vr * dt;
+
+      // mild fade towards the end
+      const remaining = (confettiStopAt - now) / durationMs;
+      p.alpha = clamp(remaining * 1.15, 0, 0.95);
+
+      confettiCtx.save();
+      confettiCtx.globalAlpha = p.alpha;
+      confettiCtx.translate(p.x, p.y);
+      confettiCtx.rotate(p.rot);
+      confettiCtx.fillStyle = p.color;
+      confettiCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+      confettiCtx.restore();
+    }
+
+    confettiRaf = requestAnimationFrame(frame);
+  }
+
+  confettiRaf = requestAnimationFrame(frame);
+}
 
 function clamp(n, min, max) {
   return Math.min(max, Math.max(min, n));
@@ -425,6 +546,7 @@ function spin() {
       lastWinnerId = winner.id;
       setResult(winner);
       setDialog(winner);
+      burstConfetti();
       if (typeof dialog.showModal === "function") dialog.showModal();
     }
 
