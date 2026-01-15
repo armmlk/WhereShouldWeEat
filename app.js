@@ -47,7 +47,7 @@ const PALETTE = [
 const DEFAULT_RESTAURANTS = [
   { name: "Happy Hands", weight: 0.2 },
   { name: "Blues", weight: 1 },
-  { name: "Olarys", weight: 1 },
+  { name: "O'Learys", weight: 1 },
   { name: "Food Market", weight: 0.7 },
   { name: "Partymakarna", weight: 0.7 },
   { name: "Grekiska", weight: 0.7 },
