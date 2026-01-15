@@ -24,7 +24,7 @@ const dialogSubtitle = document.getElementById("dialogSubtitle");
 const btnSpinAgain = document.getElementById("btnSpinAgain");
 
 const confettiCanvas = document.getElementById("confetti");
-const confettiCtx = confettiCanvas?.getContext?.("2d") ?? null;
+const confettiCtx = confettiCanvas ? confettiCanvas.getContext("2d") : null;
 
 const TWO_PI = Math.PI * 2;
 const BASE_START = -Math.PI / 2; // top
@@ -104,8 +104,8 @@ function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
   resizeConfettiCanvas();
   confettiCanvas.style.display = "block";
 
-  const w = window.innerWidth;
-  const h = window.innerHeight;
+  const initialW = window.innerWidth;
+  const initialH = window.innerHeight;
 
   const colors = [
     "#8b5cf6",
@@ -122,8 +122,8 @@ function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
 
   const particles = Array.from({ length: particleCount }, () => {
     const fromLeft = Math.random() < 0.5;
-    const startX = fromLeft ? w * 0.25 : w * 0.75;
-    const spreadX = w * 0.28;
+    const startX = fromLeft ? initialW * 0.25 : initialW * 0.75;
+    const spreadX = initialW * 0.28;
 
     return {
       x: startX + (Math.random() - 0.5) * spreadX,
@@ -154,6 +154,8 @@ function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
     }
 
     resizeConfettiCanvas();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
     confettiCtx.clearRect(0, 0, w, h);
 
     for (const p of particles) {
@@ -547,7 +549,14 @@ function spin() {
       setResult(winner);
       setDialog(winner);
       burstConfetti();
-      if (typeof dialog.showModal === "function") dialog.showModal();
+      // NOTE: <dialog>.showModal() puts up a full-page backdrop on a top-layer,
+      // which would hide any confetti drawn behind it. Give the confetti a moment
+      // to be visible before opening the winner dialog.
+      if (typeof dialog.showModal === "function") {
+        setTimeout(() => {
+          if (!dialog.open) dialog.showModal();
+        }, 450);
+      }
     }
 
     renderList();
