@@ -96,7 +96,7 @@ function stopConfetti() {
   confettiCanvas.style.display = "none";
 }
 
-function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
+function burstConfetti({ durationMs = 750, particleCount = 150 } = {}) {
   if (!confettiCanvas || !confettiCtx) return;
   if (prefersReducedMotion()) return;
 
@@ -106,6 +106,12 @@ function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
 
   const initialW = window.innerWidth;
   const initialH = window.innerHeight;
+
+  const wheelRect = canvas.getBoundingClientRect();
+  const origin = {
+    x: wheelRect.left + wheelRect.width / 2,
+    y: wheelRect.top + wheelRect.height / 2,
+  };
 
   const colors = [
     "#8b5cf6",
@@ -121,19 +127,20 @@ function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
   ];
 
   const particles = Array.from({ length: particleCount }, () => {
-    const fromLeft = Math.random() < 0.5;
-    const startX = fromLeft ? initialW * 0.25 : initialW * 0.75;
-    const spreadX = initialW * 0.28;
+    // Burst outward with a slight upward bias
+    const angle = (Math.random() * TWO_PI) - Math.PI / 2;
+    const speed = 260 + Math.random() * 560;
+    const jitter = 18;
 
     return {
-      x: startX + (Math.random() - 0.5) * spreadX,
-      y: -20 - Math.random() * 120,
-      vx: (fromLeft ? 1 : -1) * (140 + Math.random() * 260) + (Math.random() - 0.5) * 120,
-      vy: 140 + Math.random() * 260,
-      g: 680 + Math.random() * 520,
-      size: 5 + Math.random() * 6,
+      x: origin.x + (Math.random() - 0.5) * jitter,
+      y: origin.y + (Math.random() - 0.5) * jitter,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      g: 1200 + Math.random() * 700,
+      size: 5 + Math.random() * 7,
       rot: Math.random() * Math.PI,
-      vr: (Math.random() - 0.5) * 10,
+      vr: (Math.random() - 0.5) * 12,
       color: colors[Math.floor(Math.random() * colors.length)],
       alpha: 0.95,
     };
@@ -164,9 +171,14 @@ function burstConfetti({ durationMs = 1300, particleCount = 180 } = {}) {
       p.y += p.vy * dt;
       p.rot += p.vr * dt;
 
-      // mild fade towards the end
+      // Air drag so the burst settles quickly
+      const drag = Math.pow(0.08, dt);
+      p.vx *= drag;
+      p.vy *= drag;
+
+      // Fade towards the end
       const remaining = (confettiStopAt - now) / durationMs;
-      p.alpha = clamp(remaining * 1.15, 0, 0.95);
+      p.alpha = clamp(remaining * 1.25, 0, 0.95);
 
       confettiCtx.save();
       confettiCtx.globalAlpha = p.alpha;
@@ -548,7 +560,8 @@ function spin() {
       lastWinnerId = winner.id;
       setResult(winner);
       setDialog(winner);
-      burstConfetti();
+      // Keep this short so it feels like a celebration, not visual noise.
+      burstConfetti({ durationMs: 750, particleCount: 150 });
       // NOTE: <dialog>.showModal() puts up a full-page backdrop on a top-layer,
       // which would hide any confetti drawn behind it. Give the confetti a moment
       // to be visible before opening the winner dialog.
@@ -680,6 +693,9 @@ canvas.addEventListener("click", () => {
   // clicking the wheel should also spin
   spin();
 });
+
+dialog.addEventListener("close", stopConfetti);
+dialog.addEventListener("cancel", stopConfetti);
 
 btnReset.addEventListener("click", resetAll);
 btnAddSample.addEventListener("click", addSample);
